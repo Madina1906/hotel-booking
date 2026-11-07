@@ -52,3 +52,34 @@ Must stay the same:
 - tests: refaktoringdan oldin ham, keyin ham 6 ta test o'tdi. R6 va SMS qo'shilgandan keyin 8 ta test o'tdi.
 - demo: P03 dagi bilan bir xil, to'qqiz qatorning hammasi mos tushdi.
 - race: hali ham double-booked (Confirmed reservations for R7 on 12-14 Nov: 2), ya'ni xatti-harakat o'zgarmagan.
+
+# P06 design notes
+
+## Before
+- tests: 8 ta test o'tdi (`python -m unittest -v`).
+- demo: to'qqiz qator chiqdi (Free rooms R7, R8 → Maya Accepted R101 → Omar Unavailable → Nora Accepted R102 → Omar InvalidDates → Free rooms R8 → cancel True → Free rooms R7, R8 → emails sent: 2).
+- race: hali ham double-booked (Confirmed reservations for R7 on 12-14 Nov: 2).
+
+## Modules
+
+| Module | Public contract (others may use) | Internal code (only the module, the wiring and the tests) |
+|---|---|---|
+| Rooms | Room, the room catalog promise (RoomCatalog) | InMemoryRoomCatalog |
+| Reservations | BookingService, BookingResult, Reservation, DateRange, Guest, ReservationStatus, the store promise (ReservationStore) | InMemoryReservationStore |
+| Payments | PaymentStatus, the payment service promise (PaymentService) | SimulatedPaymentService |
+| Notifications | Confirmation, the notification sender promise (NotificationSender) | EmailNotificationSender, SmsNotificationSender |
+
+## Architecture rules
+1. Reservations faqat Notifications'ning ochiq shartnomasidan (Confirmation, NotificationSender) foydalanadi; EmailNotificationSender'ni hech qachon nomi bilan tilga olmaydi. Xuddi shunday Rooms va Payments'ning `internal` kodiga ham tegmaydi.
+2. Rooms boshqa hech qaysi modulni bilmaydi.
+3. Strelkalar faqat Reservations'dan tashqariga qarab ketadi: Payments va Notifications Reservations'ni import qilmaydi.
+
+Tekshiruv: `pyproject.toml` ichidagi uchta "forbidden" shartnoma, `lint-imports` bilan ishga tushadi.
+
+## Broken on purpose
+`reservations/booking.py` ga `from hotel_booking.notifications.internal import EmailNotificationSender` qatorini qo'shdim: tekshiruv qizil bo'ldi (reservations.booking -> notifications.internal, 2 kept, 1 broken), qatorni olib tashlagach yana 3 kept, 0 broken.
+
+## After
+- tests: 8 ta test o'tdi, avvalgidek.
+- demo: o'sha to'qqiz qator, bir xil (emails sent: 2).
+- race: hali ham double-booked (Confirmed reservations for R7 on 12-14 Nov: 2); buni P09 tuzatadi.
